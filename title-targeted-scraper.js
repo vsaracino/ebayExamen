@@ -1,5 +1,5 @@
 const express = require('express');
-const { chromium } = require('playwright');
+const puppeteer = require('puppeteer');
 const axios = require('axios');
 
 const app = express();
@@ -122,11 +122,11 @@ app.get('/api/scrape-active', async (req, res) => {
 
     let browser;
     try {
-        browser = await chromium.launch({ 
+        // Use Chrome headless on Vercel with proper configuration
+        const launchOptions = {
             headless: true,
-            channel: 'chromium', // Use standard Chromium instead of headless shell
             args: [
-                '--no-sandbox', 
+                '--no-sandbox',
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
                 '--disable-accelerated-2d-canvas',
@@ -139,7 +139,14 @@ app.get('/api/scrape-active', async (req, res) => {
                 '--memory-pressure-off',
                 '--max_old_space_size=4096'
             ]
-        });
+        };
+
+        // On Vercel, try to use the system Chrome if available
+        if (process.env.VERCEL) {
+            launchOptions.executablePath = '/usr/bin/google-chrome-stable';
+        }
+
+        browser = await puppeteer.launch(launchOptions);
         
         const page = await browser.newPage();
         await page.setViewport({ width: 1366, height: 768 });
@@ -419,16 +426,12 @@ app.get('/api/scrape-sold', async (req, res) => {
     
     res.setHeader('Content-Type', 'application/json');
 
-
     console.log(`🔍 Title-targeted scraper searching for: ${keywords}`);
 
     let browser;
-    
     try {
-        console.log('🎭 Launching Playwright browser...');
-        browser = await chromium.launch({ 
-            headless: true,
-            channel: 'chromium', // Use standard Chromium instead of headless shell
+        browser = await puppeteer.launch({ 
+            headless: 'new',
             args: [
                 '--no-sandbox', 
                 '--disable-setuid-sandbox',
@@ -444,10 +447,6 @@ app.get('/api/scrape-sold', async (req, res) => {
                 '--max_old_space_size=4096'
             ]
         });
-        
-        const page = await browser.newPage();
-        await page.setViewport({ width: 1366, height: 768 });
-        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
         
         // Navigate to eBay sold search
         const searchUrl = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(keywords)}&LH_Sold=1&LH_Complete=1&_sop=10`;
@@ -942,7 +941,7 @@ app.get('/', (req, res) => {
                 .analytics h3 { color: #58a6ff; margin: 0 0 15px 0; }
                 .analytics-grid { 
                     display: grid; 
-                    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); 
+                    grid-template-columns: repeat(2, 1fr); 
                     gap: 20px; 
                     margin-top: 20px; 
                 }
@@ -1001,7 +1000,7 @@ app.get('/', (req, res) => {
                     50% { background-position: 100% 50%; }
                     100% { background-position: 0% 50%; }
                 }
-                @media (max-width: 768px) {
+                @media (max-width: 900px) {
                     .search-box { flex-direction: column; }
                     input[type="text"] { width: 100%; }
                     .analytics-grid { grid-template-columns: 1fr; }
@@ -1187,6 +1186,42 @@ app.get('/', (req, res) => {
                     '<div class="items-list">';
                     
                     data.items.forEach(item => {
+                        html += '<div class="item-card">' +
+                            '<div class="item-details">' +
+                                '<a href="' + item.link + '" target="_blank" class="item-title">' + item.title + '</a>' +
+                                '<div class="item-condition">' + item.condition + ' • ' + item.timeLeft + '</div>' +
+                            '</div>' +
+                            '<div class="item-price">' + item.price + '</div>' +
+                        '</div>';
+                    });
+                    
+                    html += '</div>';
+                    resultsDiv.innerHTML = html;
+                }
+                
+                function displayVercelResults(activeData) {
+                    const resultsDiv = document.getElementById('results');
+                    
+                    let html = '<div class="analytics">' +
+                        '<h3>🛒 Active Listings Analytics (Vercel Mode)</h3>' +
+                        '<div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 15px; margin-bottom: 20px; text-align: center;">' +
+                            '<p style="color: #856404; margin: 0;"><strong>⚠️ Vercel Environment</strong></p>' +
+                            '<p style="color: #856404; margin: 5px 0 0 0; font-size: 14px;">Browser automation is not available on Vercel. Only active listings via eBay API are shown.</p>' +
+                        '</div>' +
+                        '<div class="analytics-grid">' +
+                            '<div class="analytics-panel">' +
+                                '<h4>🛒 Active Listings</h4>' +
+                                '<p><strong>Total Listings:</strong> ' + activeData.analytics.total.count + '</p>' +
+                                '<p><strong>Average Price:</strong> $' + activeData.analytics.total.average.toFixed(2) + '</p>' +
+                                '<p><strong>Highest Price:</strong> $' + activeData.analytics.total.highest.toFixed(2) + '</p>' +
+                                '<p><strong>Lowest Price:</strong> $' + activeData.analytics.total.lowest.toFixed(2) + '</p>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="items-list">' +
+                        '<h3>🛒 Active Listings</h3>';
+                    
+                    activeData.items.forEach(item => {
                         html += '<div class="item-card">' +
                             '<div class="item-details">' +
                                 '<a href="' + item.link + '" target="_blank" class="item-title">' + item.title + '</a>' +
