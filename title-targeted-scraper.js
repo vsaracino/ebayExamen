@@ -10,7 +10,106 @@ app.use(express.json());
 // eBay API Configuration
 const EBAY_API_BASE_URL = 'https://api.ebay.com/buy/browse/v1';
 const EBAY_FINDING_API_URL = 'https://svcs.ebay.com/services/search/FindingService/v1';
-const EBAY_OAUTH_TOKEN = 'v^1.1#i^1#f^0#I^3#r^0#p^1#t^H4sIAAAAAAAA/+VYe2wURRjv9YWkPAyQFtHgubRC0N2buev27ra9wyulcKXvawtUhMzOzrbL7e1edvfanoHkaBSDJJhojRgMYJAAJiZqwJBgiFF8YWJIkT98EEyUUCSKkQQkauLstZRrJYD0iE28fy7zzTff/L7ffI/ZAanCqYu3rNhydbpjSu6eFEjlOhywCEwtLHhsRl7uvIIckKHg2JMqTeX35w1VmSimxoVWYsZ1zSTOvpiqmUJaGGAShiboyFRMQUMxYgoWFiKhhnrBzQEhbuiWjnWVcYZrAoxMMPJ5yr1iOQY+P8FUql232aYHGHuKl0WAoAS9olei86aZIGHNtJBmBRg3cPMsBCz0tUGfAMoF3s1BT0Un4+wghqnoGlXhABNMwxXSa40MrLeGikyTGBY1wgTDodpIUyhcs6yxrcqVYSs4wkPEQlbCHDtaqkvE2YHUBLn1NmZaW4gkMCamybiCwzuMNSqEroO5C/hpqn2IQOyRJLdY4QWSF2eFylrdiCHr1jhsiSKxclpVIJqlWMnbMUrZEDcQbI2MGqmJcI3T/mtJIFWRFWIEmGXVoTWh5mYm2KFomNqNsCZSiSkhi21urWElzPu9XsnvZWXII5EgPLLRsLURmsfttFTXJMUmzXQ26lY1oajJWG68Ap/BDVVq0pqMkGzZiDL03OA6h9DXaR/q8CkmrG7NPlcSo4Cd6eHtT2B0tWUZipiwyKiF8RNpigIMiscViRk/mY7FkfDpMwNMt2XFBZert7eX6/VwutHlcgMAXasb6iO4m8QQQ3XtXB/WV26/gFXSrmBCV5qKYCXjFEsfjVUKQOtigny5x+OHI7yPhRUcL/2HIMNn19iMyFaGlHsgFCEGAFXwkPjFbGRIcCRIXTYOIqIkG0NGlFhxFWHCYhpniRgxFEnw8LLb45MJK1X4ZbbcL8usyEsVLJQJAYSIIvb7/k+JcqehHiHYIFZWYj1rcV5XZ6zAsLZz1aqW1pZkfTK6fEMUr8Yt1cs1Egl3NrQqiY7lq/X2WHRZ4E6z4abOL1UVykwb3T8bBNi5nj0SVuimRaQJuRfBepw066qCk5PrgD2G1IwMKxkhqkoFE3IyFI+Hs1Ors+bevywTd+d39nrUf9SfbuqVaYfs5PLKXm9SAyiucHYH4rAec9m5riN6/bDF69OonTdVHKfkojLasDDhaF+SRISjnEGQpGtqckK8KfTmO6lYo34Ok6BIw1dWLs0EZ/Zg6rGpJygHJtdk3+Da9CjRaD+0DF1VidExsQiy60EslrCQqJLJVhiykCAKmmTNGnorgA+CCr97Qn7hdCteP9lKml3K8/sd6J6X81aC1Njk8j1u6FIC23fUe/DJ4Rr7ABLMSf9gv+ND0O84lutwgCpQBheARwrz2vPzps0zFYtwCpI5U+nS6He9QbgoScaRYuTOzjlx+uvG+UfrDmz9sST1bKnrxZwZGe8ve54Cc0dfYKbmwaKM5xjw0I2ZAjizZLqbhwD6oA+U8+5OsODGbD4szp+jvPV0aVllYW0ktnd7T/G1WQ9ouQfB9FElh6MghwZLTsmRfefLdi1c8iZ7eEAuaf302JTKnfsLtkmXvvlo85b3z1b9vIMp3OHxc0dhpLlTSs7u2lbq4rcZT8B3piz+/uoR7pWBU4tm7Ti33/pj01enDpQd7jr56GcnOee64sE5Ra99PjA4cG1lzwXIru3r/q3jve+Kf4ifuBwunjN34ceXuzf+9WvRl76zm0ouRNsbmhL3PwjW3vfct6mZf/K719VvXkkGq5/0DFZ2bHw4tRVsEM980HtoyfE2kHBHh473XCwpzvnl4BWtd80ZT3j+lbI3XFe3nx5q31n3tvuQ3PpyZN+iaTNm/u569adjeyOdu77gK899En3X+cwLzw/15j9ecun159t2y+3nD710cfgs/wbJ6sRIGRMAAA==';
+// eBay OAuth Client Credentials for Browse API (2-hour expiry, but auto-refreshable)
+const EBAY_CLIENT_ID = process.env.EBAY_CLIENT_ID;
+const EBAY_CLIENT_SECRET = process.env.EBAY_CLIENT_SECRET;
+
+// Check if environment variables are set
+if (!EBAY_CLIENT_ID || !EBAY_CLIENT_SECRET) {
+    console.error('❌ Missing eBay OAuth credentials!');
+    console.error('Please set EBAY_CLIENT_ID and EBAY_CLIENT_SECRET environment variables.');
+    process.exit(1);
+}
+
+// OAuth Token Management (auto-refreshable)
+let currentToken = null;
+let tokenExpiry = null;
+
+// Function to get OAuth access token using Client Credentials
+async function getEbayAccessToken() {
+    try {
+        console.log('🔄 Getting new eBay OAuth access token...');
+        
+        const response = await axios.post('https://api.ebay.com/identity/v1/oauth2/token', 
+            'grant_type=client_credentials&scope=https://api.ebay.com/oauth/api_scope',
+            {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Authorization': `Basic ${Buffer.from(`${EBAY_CLIENT_ID}:${EBAY_CLIENT_SECRET}`).toString('base64')}`
+                }
+            }
+        );
+        
+        const tokenData = response.data;
+        currentToken = tokenData.access_token;
+        tokenExpiry = Date.now() + (tokenData.expires_in * 1000);
+        
+        console.log('✅ New OAuth token obtained, expires in', tokenData.expires_in, 'seconds');
+        return currentToken;
+    } catch (error) {
+        console.error('❌ Failed to get OAuth token:', error.response?.data || error.message);
+        throw error;
+    }
+}
+
+// Function to refresh OAuth token if needed
+async function refreshEbayToken() {
+    try {
+        // Check if token is still valid
+        if (currentToken && tokenExpiry && Date.now() < tokenExpiry) {
+            return currentToken;
+        }
+        
+        // Get new token
+        return await getEbayAccessToken();
+    } catch (error) {
+        console.error('❌ Token refresh failed:', error.message);
+        throw error;
+    }
+}
+
+// Function to make eBay API calls with OAuth Token (auto-refreshable)
+async function makeEbayApiCall(url, params = {}, retryCount = 0) {
+    const maxRetries = 1;
+    
+    try {
+        // Ensure we have a valid token
+        if (!currentToken || (tokenExpiry && Date.now() >= tokenExpiry)) {
+            await refreshEbayToken();
+        }
+        
+        const response = await axios.get(url, {
+            headers: {
+                'Authorization': `Bearer ${currentToken}`,
+                'Content-Type': 'application/json',
+                'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US' // Required for Browse API
+            },
+            params: params
+        });
+        
+        return response;
+    } catch (error) {
+        // Check if it's a token expiration error (1001)
+        if (error.response?.data?.errors?.[0]?.errorId === 1001 && retryCount < maxRetries) {
+            console.log('🔄 OAuth token expired, attempting refresh...');
+            
+            try {
+                // Try to refresh the token
+                currentToken = await refreshEbayToken();
+                
+                // Retry the API call with new token
+                console.log('🔄 Retrying API call with refreshed token...');
+                return await makeEbayApiCall(url, params, retryCount + 1);
+            } catch (refreshError) {
+                console.error('❌ Token refresh failed:', refreshError.message);
+                throw error; // Throw original error if refresh fails
+            }
+        }
+        
+        // If it's not a token error or we've exhausted retries, throw the error
+        throw error;
+    }
+}
 
 app.get('/api/scrape-active', async (req, res) => {
     const { keywords } = req.query;
@@ -294,7 +393,11 @@ app.get('/api/scrape-active', async (req, res) => {
         res.json({
             success: false,
             message: `Active search failed: ${error.message}`,
-            analytics: { count: 0, highest: 0, lowest: 0, average: 0 },
+            analytics: { 
+                total: { count: 0, highest: 0, lowest: 0, average: 0 }, 
+                new: { count: 0, highest: 0, lowest: 0, average: 0 }, 
+                used: { count: 0, highest: 0, lowest: 0, average: 0 } 
+            },
             totalActive: 0
         });
     } finally {
@@ -625,7 +728,11 @@ app.get('/api/scrape-sold', async (req, res) => {
         res.json({
             success: false,
             message: `Scraping failed: ${error.message}`,
-            analytics: { count: 0, highest: 0, lowest: 0, average: 0 },
+            analytics: { 
+                total: { count: 0, highest: 0, lowest: 0, average: 0 }, 
+                new: { count: 0, highest: 0, lowest: 0, average: 0 }, 
+                used: { count: 0, highest: 0, lowest: 0, average: 0 } 
+            },
             items: [],
             totalSold: 0
         });
@@ -648,16 +755,10 @@ app.get('/api/ebay-active', async (req, res) => {
 
     try {
         // First, get the total count without pagination limits
-        const countResponse = await axios.get(`${EBAY_API_BASE_URL}/item_summary/search`, {
-            headers: {
-                'Authorization': `Bearer ${EBAY_OAUTH_TOKEN}`,
-                'Content-Type': 'application/json'
-            },
-            params: {
-                q: keywords,
-                limit: 1, // Just get 1 item to get the total count
-                sort: 'price'
-            }
+        const countResponse = await makeEbayApiCall(`${EBAY_API_BASE_URL}/item_summary/search`, {
+            q: keywords,
+            limit: 1, // Just get 1 item to get the total count
+            sort: 'price'
         });
 
         const totalCount = countResponse.data.total || 0;
@@ -670,17 +771,11 @@ app.get('/api/ebay-active', async (req, res) => {
         const itemsPerPage = 50;
         
         while (allItems.length < maxResults && allItems.length < totalCount) {
-            const response = await axios.get(`${EBAY_API_BASE_URL}/item_summary/search`, {
-                headers: {
-                    'Authorization': `Bearer ${EBAY_OAUTH_TOKEN}`,
-                    'Content-Type': 'application/json'
-                },
-                params: {
-                    q: keywords,
-                    limit: Math.min(itemsPerPage, maxResults - allItems.length),
-                    sort: 'price',
-                    offset: offset
-                }
+            const response = await makeEbayApiCall(`${EBAY_API_BASE_URL}/item_summary/search`, {
+                q: keywords,
+                limit: Math.min(itemsPerPage, maxResults - allItems.length),
+                sort: 'price',
+                offset: offset
             });
 
             const pageItems = response.data.itemSummaries || [];
@@ -770,7 +865,11 @@ app.get('/api/ebay-active', async (req, res) => {
         res.json({
             success: false,
             message: `eBay API search failed: ${error.response?.data?.message || error.message}`,
-            analytics: { total: { count: 0, highest: 0, lowest: 0, average: 0 }, new: { count: 0, highest: 0, lowest: 0, average: 0 }, used: { count: 0, highest: 0, lowest: 0, average: 0 } },
+            analytics: { 
+                total: { count: 0, highest: 0, lowest: 0, average: 0 }, 
+                new: { count: 0, highest: 0, lowest: 0, average: 0 }, 
+                used: { count: 0, highest: 0, lowest: 0, average: 0 } 
+            },
             items: [],
             totalActive: 0,
             source: 'eBay API'
@@ -1206,29 +1305,29 @@ app.get('/', (req, res) => {
                 
                 function expandSoldList() {
                     // Get all sold items and replace the current display
-                    const allItems = window.currentSoldData.items;
+                            const allItems = window.currentSoldData.items;
                     let html = '<h3>📈 Sold Listings (All ' + allItems.length + ' Items)</h3>';
                     
-                    allItems.forEach((item, index) => {
+                            allItems.forEach((item, index) => {
                         html += '<div class="item-card">' +
                             '<div class="item-details">' +
                                 '<a href="' + item.link + '" target="_blank" class="item-title">' + item.title + '</a>' +
                                 '<div class="item-condition">' + item.condition + '</div>' +
-                            '</div>' +
+                                    '</div>' +
                             '<div class="item-price">' + item.price + '</div>' +
-                        '</div>';
-                    });
+                                '</div>';
+                            });
                     
                     // Find the items list container and replace its content
                     const itemsList = document.querySelector('.items-list');
                     if (itemsList) {
-                        itemsList.innerHTML = html;
+                            itemsList.innerHTML = html;
                     }
-                    
-                    // Hide the expand button
-                    const expandButton = document.querySelector('button[onclick="expandSoldList()"]');
-                    if (expandButton) {
-                        expandButton.style.display = 'none';
+                            
+                            // Hide the expand button
+                            const expandButton = document.querySelector('button[onclick="expandSoldList()"]');
+                            if (expandButton) {
+                                expandButton.style.display = 'none';
                     }
                 }
             </script>

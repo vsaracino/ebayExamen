@@ -3,7 +3,10 @@ import { EbaySearchResponse, SearchParams } from '../types/ebay';
 
 // eBay API Configuration
 const EBAY_API_BASE_URL = 'https://svcs.ebay.com/services/search/FindingService/v1';
-const EBAY_APP_ID = process.env.REACT_APP_EBAY_APP_ID || 'YOUR_EBAY_APP_ID';
+// This service is for React frontend - not used in main Node.js application
+// Remove this file if not using React frontend
+
+const EBAY_APP_ID = process.env.REACT_APP_EBAY_APP_ID;
 
 class EbayApiService {
   private baseURL: string;
@@ -12,6 +15,10 @@ class EbayApiService {
   constructor() {
     this.baseURL = EBAY_API_BASE_URL;
     this.appId = EBAY_APP_ID;
+    
+    if (!this.appId) {
+      throw new Error('REACT_APP_EBAY_APP_ID environment variable is required');
+    }
   }
 
   /**
