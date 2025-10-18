@@ -4,9 +4,10 @@
   "description": "A modern React TypeScript application for searching and browsing eBay listings",
   "main": "title-targeted-scraper.js",
   "scripts": {
-    "start": "node title-targeted-scraper.js",
+    "start": "chmod +x start.sh && ./start.sh",
     "dev": "node title-targeted-scraper.js",
-    "build": "echo 'Build script not implemented yet'",
+    "build": "npx playwright install chromium",
+    "postinstall": "npx playwright install chromium",
     "test": "echo 'Test script not implemented yet'",
     "web": "node title-targeted-scraper.js"
   },
