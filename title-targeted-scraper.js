@@ -124,6 +124,7 @@ app.get('/api/scrape-active', async (req, res) => {
     try {
         browser = await chromium.launch({ 
             headless: true,
+            channel: 'chromium', // Use standard Chromium instead of headless shell
             args: [
                 '--no-sandbox', 
                 '--disable-setuid-sandbox',
@@ -427,6 +428,7 @@ app.get('/api/scrape-sold', async (req, res) => {
         console.log('🎭 Launching Playwright browser...');
         browser = await chromium.launch({ 
             headless: true,
+            channel: 'chromium', // Use standard Chromium instead of headless shell
             args: [
                 '--no-sandbox', 
                 '--disable-setuid-sandbox',
