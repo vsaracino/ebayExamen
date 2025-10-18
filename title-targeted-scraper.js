@@ -1,5 +1,5 @@
 const express = require('express');
-const puppeteer = require('puppeteer');
+const { chromium } = require('playwright');
 const axios = require('axios');
 
 const app = express();
@@ -122,8 +122,8 @@ app.get('/api/scrape-active', async (req, res) => {
 
     let browser;
     try {
-        browser = await puppeteer.launch({ 
-            headless: 'new',
+        browser = await chromium.launch({ 
+            headless: true,
             args: [
                 '--no-sandbox', 
                 '--disable-setuid-sandbox',
@@ -416,17 +416,17 @@ app.get('/api/scrape-sold', async (req, res) => {
         return res.json({ success: false, message: 'Keywords required' });
     }
     
-    // Regular JSON response
-    
-    // Regular JSON response
     res.setHeader('Content-Type', 'application/json');
+
 
     console.log(`🔍 Title-targeted scraper searching for: ${keywords}`);
 
     let browser;
+    
     try {
-        browser = await puppeteer.launch({ 
-            headless: 'new',
+        console.log('🎭 Launching Playwright browser...');
+        browser = await chromium.launch({ 
+            headless: true,
             args: [
                 '--no-sandbox', 
                 '--disable-setuid-sandbox',
@@ -724,7 +724,7 @@ app.get('/api/scrape-sold', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Error:', error);
+        console.error('Playwright failed:', error);
         res.json({
             success: false,
             message: `Scraping failed: ${error.message}`,
@@ -1185,6 +1185,42 @@ app.get('/', (req, res) => {
                     '<div class="items-list">';
                     
                     data.items.forEach(item => {
+                        html += '<div class="item-card">' +
+                            '<div class="item-details">' +
+                                '<a href="' + item.link + '" target="_blank" class="item-title">' + item.title + '</a>' +
+                                '<div class="item-condition">' + item.condition + ' • ' + item.timeLeft + '</div>' +
+                            '</div>' +
+                            '<div class="item-price">' + item.price + '</div>' +
+                        '</div>';
+                    });
+                    
+                    html += '</div>';
+                    resultsDiv.innerHTML = html;
+                }
+                
+                function displayProductionResults(activeData) {
+                    const resultsDiv = document.getElementById('results');
+                    
+                    let html = '<div class="analytics">' +
+                        '<h3>🛒 Active Listings Analytics (Production Mode)</h3>' +
+                        '<div style="background: #f0f8ff; border: 1px solid #58a6ff; border-radius: 8px; padding: 15px; margin-bottom: 20px; text-align: center;">' +
+                            '<p style="color: #58a6ff; margin: 0;"><strong>ℹ️ Production Environment</strong></p>' +
+                            '<p style="color: #666; margin: 5px 0 0 0; font-size: 14px;">Sold listings analysis is not available in production. Only active listings are shown.</p>' +
+                        '</div>' +
+                        '<div class="analytics-grid">' +
+                            '<div class="analytics-panel">' +
+                                '<h4>🛒 Active Listings</h4>' +
+                                '<p><strong>Total Listings:</strong> ' + activeData.analytics.total.count + '</p>' +
+                                '<p><strong>Average Price:</strong> $' + activeData.analytics.total.average.toFixed(2) + '</p>' +
+                                '<p><strong>Highest Price:</strong> $' + activeData.analytics.total.highest.toFixed(2) + '</p>' +
+                                '<p><strong>Lowest Price:</strong> $' + activeData.analytics.total.lowest.toFixed(2) + '</p>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="items-list">' +
+                        '<h3>🛒 Active Listings</h3>';
+                    
+                    activeData.items.forEach(item => {
                         html += '<div class="item-card">' +
                             '<div class="item-details">' +
                                 '<a href="' + item.link + '" target="_blank" class="item-title">' + item.title + '</a>' +
