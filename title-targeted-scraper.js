@@ -24,7 +24,7 @@ app.get('/api/scrape-active', async (req, res) => {
     let browser;
     try {
         browser = await puppeteer.launch({ 
-            headless: true,
+            headless: 'new',
             args: [
                 '--no-sandbox', 
                 '--disable-setuid-sandbox',
@@ -33,7 +33,11 @@ app.get('/api/scrape-active', async (req, res) => {
                 '--no-first-run',
                 '--no-zygote',
                 '--single-process',
-                '--disable-gpu'
+                '--disable-gpu',
+                '--disable-web-security',
+                '--disable-features=VizDisplayCompositor',
+                '--memory-pressure-off',
+                '--max_old_space_size=4096'
             ]
         });
         
@@ -319,7 +323,7 @@ app.get('/api/scrape-sold', async (req, res) => {
     let browser;
     try {
         browser = await puppeteer.launch({ 
-            headless: true,
+            headless: 'new',
             args: [
                 '--no-sandbox', 
                 '--disable-setuid-sandbox',
@@ -328,7 +332,11 @@ app.get('/api/scrape-sold', async (req, res) => {
                 '--no-first-run',
                 '--no-zygote',
                 '--single-process',
-                '--disable-gpu'
+                '--disable-gpu',
+                '--disable-web-security',
+                '--disable-features=VizDisplayCompositor',
+                '--memory-pressure-off',
+                '--max_old_space_size=4096'
             ]
         });
         
