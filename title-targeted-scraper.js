@@ -458,6 +458,12 @@ app.get('/api/scrape-sold', async (req, res) => {
         });
         console.log('✅ Browser launched successfully');
         
+        // Create page
+        const page = await browser.newPage();
+        await page.setViewport({ width: 1366, height: 768 });
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+        console.log('✅ Page created and configured');
+        
         // Navigate to eBay sold search
         const searchUrl = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(keywords)}&LH_Sold=1&LH_Complete=1&_sop=10`;
         console.log(`📡 Navigating to: ${searchUrl}`);
@@ -735,7 +741,7 @@ app.get('/api/scrape-sold', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Playwright failed:', error);
+        console.error('Puppeteer failed:', error);
         res.json({
             success: false,
             message: `Scraping failed: ${error.message}`,
