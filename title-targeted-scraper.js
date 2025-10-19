@@ -775,30 +775,52 @@ app.get('/api/scrape-sold', async (req, res) => {
             }
         };
 
-        res.json({
-            success: true,
-            message: `Found ${totalResults} total sold listings (analyzed ${pageItems.length} for pricing)`,
-            analytics: analytics,
-            items: pageItems,
-            totalSold: totalResults
-        });
+        // Ensure we always send valid JSON
+        try {
+            res.json({
+                success: true,
+                message: `Found ${totalResults} total sold listings (analyzed ${pageItems.length} for pricing)`,
+                analytics: analytics,
+                items: pageItems,
+                totalSold: totalResults
+            });
+        } catch (jsonError) {
+            console.error('Failed to send JSON response:', jsonError);
+            res.status(500).send('Internal server error');
+        }
 
     } catch (error) {
         console.error('Puppeteer failed:', error);
-        res.json({
-            success: false,
-            message: `Scraping failed: ${error.message}`,
-            analytics: { 
-                total: { count: 0, highest: 0, lowest: 0, average: 0 }, 
-                new: { count: 0, highest: 0, lowest: 0, average: 0 }, 
-                used: { count: 0, highest: 0, lowest: 0, average: 0 } 
-            },
-            items: [],
-            totalSold: 0
+        console.error('Error details:', {
+            name: error.name,
+            message: error.message,
+            stack: error.stack
         });
+        
+        // Ensure we always send valid JSON
+        try {
+            res.json({
+                success: false,
+                message: `Scraping failed: ${error.message}`,
+                analytics: { 
+                    total: { count: 0, highest: 0, lowest: 0, average: 0 }, 
+                    new: { count: 0, highest: 0, lowest: 0, average: 0 }, 
+                    used: { count: 0, highest: 0, lowest: 0, average: 0 } 
+                },
+                items: [],
+                totalSold: 0
+            });
+        } catch (jsonError) {
+            console.error('Failed to send JSON response:', jsonError);
+            res.status(500).send('Internal server error');
+        }
     } finally {
         if (browser) {
-            await browser.close();
+            try {
+                await browser.close();
+            } catch (closeError) {
+                console.error('Error closing browser:', closeError);
+            }
         }
     }
 });
