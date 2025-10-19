@@ -148,9 +148,11 @@ app.get('/api/scrape-active', async (req, res) => {
 
         browser = await puppeteer.launch(launchOptions);
         
+        console.log('📄 Creating new page...');
         const page = await browser.newPage();
         await page.setViewport({ width: 1366, height: 768 });
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+        console.log('✅ Page created and configured');
         
         // Navigate to eBay active search (no sold filter)
         const searchUrl = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(keywords)}&_sop=10`;
@@ -427,9 +429,12 @@ app.get('/api/scrape-sold', async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
 
     console.log(`🔍 Title-targeted scraper searching for: ${keywords}`);
+    console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🔧 Puppeteer available: ${typeof puppeteer !== 'undefined'}`);
 
     let browser;
     try {
+        console.log('🚀 Launching Puppeteer browser...');
         browser = await puppeteer.launch({ 
             headless: 'new',
             args: [
@@ -447,6 +452,7 @@ app.get('/api/scrape-sold', async (req, res) => {
                 '--max_old_space_size=4096'
             ]
         });
+        console.log('✅ Browser launched successfully');
         
         // Navigate to eBay sold search
         const searchUrl = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(keywords)}&LH_Sold=1&LH_Complete=1&_sop=10`;
