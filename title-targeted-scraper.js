@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const puppeteer = require('puppeteer');
 const axios = require('axios');
@@ -432,11 +433,19 @@ app.get('/api/scrape-sold', async (req, res) => {
     console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🔧 Puppeteer available: ${typeof puppeteer !== 'undefined'}`);
 
-    let browser;
-    try {
+    // Set a timeout for the entire operation
+    const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+            reject(new Error('Scraping operation timed out after 4 minutes'));
+        }, 4 * 60 * 1000); // 4 minutes
+    });
+
+    const scrapingPromise = (async () => {
+        let browser;
+        try {
         console.log('🚀 Launching Puppeteer browser...');
-        // Use the environment variable path or default to chromium-browser
-        const chromePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser';
+        // Use the environment variable path or default to Chrome on Windows
+        const chromePath = process.env.PUPPETEER_EXECUTABLE_PATH || (process.platform === 'win32' ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' : '/usr/bin/chromium-browser');
         console.log(`🚀 Using Chrome at: ${chromePath}`);
         
         // Try launching with timeout and retry
@@ -814,13 +823,37 @@ app.get('/api/scrape-sold', async (req, res) => {
             console.error('Failed to send JSON response:', jsonError);
             res.status(500).send('Internal server error');
         }
-    } finally {
-        if (browser) {
-            try {
-                await browser.close();
-            } catch (closeError) {
-                console.error('Error closing browser:', closeError);
+        } finally {
+            if (browser) {
+                try {
+                    await browser.close();
+                } catch (closeError) {
+                    console.error('Error closing browser:', closeError);
+                }
             }
+        }
+    })();
+
+    // Race between scraping and timeout
+    try {
+        const result = await Promise.race([scrapingPromise, timeoutPromise]);
+        if (!res.headersSent) {
+            res.json(result);
+        }
+    } catch (error) {
+        console.error('Scraping failed:', error);
+        if (!res.headersSent) {
+            res.json({
+                success: false,
+                message: `Scraping failed: ${error.message}`,
+                analytics: { 
+                    total: { count: 0, highest: 0, lowest: 0, average: 0 }, 
+                    new: { count: 0, highest: 0, lowest: 0, average: 0 }, 
+                    used: { count: 0, highest: 0, lowest: 0, average: 0 } 
+                },
+                items: [],
+                totalSold: 0
+            });
         }
     }
 });
