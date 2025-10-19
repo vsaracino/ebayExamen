@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const puppeteer = require('puppeteer');
 const axios = require('axios');
@@ -148,9 +149,11 @@ app.get('/api/scrape-active', async (req, res) => {
 
         browser = await puppeteer.launch(launchOptions);
         
+        console.log('📄 Creating new page...');
         const page = await browser.newPage();
         await page.setViewport({ width: 1366, height: 768 });
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+        console.log('✅ Page created and configured');
         
         // Navigate to eBay active search (no sold filter)
         const searchUrl = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(keywords)}&_sop=10`;
@@ -427,26 +430,91 @@ app.get('/api/scrape-sold', async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
 
     console.log(`🔍 Title-targeted scraper searching for: ${keywords}`);
+    console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🔧 Puppeteer available: ${typeof puppeteer !== 'undefined'}`);
 
-    let browser;
-    try {
-        browser = await puppeteer.launch({ 
-            headless: 'new',
-            args: [
-                '--no-sandbox', 
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-accelerated-2d-canvas',
-                '--no-first-run',
-                '--no-zygote',
-                '--single-process',
-                '--disable-gpu',
-                '--disable-web-security',
-                '--disable-features=VizDisplayCompositor',
-                '--memory-pressure-off',
-                '--max_old_space_size=4096'
-            ]
-        });
+    // Set a timeout for the entire operation
+    const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+            reject(new Error('Scraping operation timed out after 4 minutes'));
+        }, 4 * 60 * 1000); // 4 minutes
+    });
+
+    const scrapingPromise = (async () => {
+        let browser;
+        try {
+        console.log('🚀 Launching Puppeteer browser...');
+        // Use the environment variable path or default to Chrome on Windows
+        const chromePath = process.env.PUPPETEER_EXECUTABLE_PATH || (process.platform === 'win32' ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' : '/usr/bin/chromium-browser');
+        console.log(`🚀 Using Chrome at: ${chromePath}`);
+        
+        // Try launching with timeout and retry
+        let launchAttempts = 0;
+        const maxAttempts = 3;
+        
+        while (launchAttempts < maxAttempts) {
+            try {
+                console.log(`🚀 Launch attempt ${launchAttempts + 1}/${maxAttempts}`);
+                browser = await puppeteer.launch({ 
+                    headless: 'new',
+                    executablePath: chromePath,
+                    timeout: 30000,
+                    args: [
+                        '--no-sandbox',
+                        '--disable-setuid-sandbox',
+                        '--disable-dev-shm-usage',
+                        '--disable-gpu',
+                        '--single-process',
+                        '--no-zygote',
+                        '--disable-web-security',
+                        '--disable-features=VizDisplayCompositor',
+                        '--memory-pressure-off',
+                        '--max_old_space_size=128',
+                        '--disable-extensions',
+                        '--disable-plugins',
+                        '--disable-default-apps',
+                        '--disable-sync',
+                        '--disable-translate',
+                        '--hide-scrollbars',
+                        '--mute-audio'
+                    ]
+                });
+                console.log(`✅ Browser launched successfully on attempt ${launchAttempts + 1}`);
+                break;
+            } catch (error) {
+                launchAttempts++;
+                console.log(`❌ Launch attempt ${launchAttempts} failed: ${error.message}`);
+                if (launchAttempts >= maxAttempts) {
+                    throw error;
+                }
+                console.log(`⏳ Waiting 2 seconds before retry...`);
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+        }
+        console.log('✅ Browser launched successfully');
+        
+        // Create page with retry logic
+        let page;
+        let retries = 0;
+        const maxRetries = 3;
+        
+        while (retries < maxRetries) {
+            try {
+                console.log(`📄 Creating new page... (attempt ${retries + 1}/${maxRetries})`);
+                page = await browser.newPage();
+                await page.setViewport({ width: 1366, height: 768 });
+                await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+                console.log('✅ Page created and configured');
+                break;
+            } catch (error) {
+                retries++;
+                console.log(`❌ Page creation failed (attempt ${retries}/${maxRetries}): ${error.message}`);
+                if (retries >= maxRetries) {
+                    throw error;
+                }
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
         
         // Navigate to eBay sold search
         const searchUrl = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(keywords)}&LH_Sold=1&LH_Complete=1&_sop=10`;
@@ -716,30 +784,76 @@ app.get('/api/scrape-sold', async (req, res) => {
             }
         };
 
-        res.json({
-            success: true,
-            message: `Found ${totalResults} total sold listings (analyzed ${pageItems.length} for pricing)`,
-            analytics: analytics,
-            items: pageItems,
-            totalSold: totalResults
-        });
+        // Ensure we always send valid JSON
+        try {
+            res.json({
+                success: true,
+                message: `Found ${totalResults} total sold listings (analyzed ${pageItems.length} for pricing)`,
+                analytics: analytics,
+                items: pageItems,
+                totalSold: totalResults
+            });
+        } catch (jsonError) {
+            console.error('Failed to send JSON response:', jsonError);
+            res.status(500).send('Internal server error');
+        }
 
     } catch (error) {
-        console.error('Playwright failed:', error);
-        res.json({
-            success: false,
-            message: `Scraping failed: ${error.message}`,
-            analytics: { 
-                total: { count: 0, highest: 0, lowest: 0, average: 0 }, 
-                new: { count: 0, highest: 0, lowest: 0, average: 0 }, 
-                used: { count: 0, highest: 0, lowest: 0, average: 0 } 
-            },
-            items: [],
-            totalSold: 0
+        console.error('Puppeteer failed:', error);
+        console.error('Error details:', {
+            name: error.name,
+            message: error.message,
+            stack: error.stack
         });
-    } finally {
-        if (browser) {
-            await browser.close();
+        
+        // Ensure we always send valid JSON
+        try {
+            res.json({
+                success: false,
+                message: `Scraping failed: ${error.message}`,
+                analytics: { 
+                    total: { count: 0, highest: 0, lowest: 0, average: 0 }, 
+                    new: { count: 0, highest: 0, lowest: 0, average: 0 }, 
+                    used: { count: 0, highest: 0, lowest: 0, average: 0 } 
+                },
+                items: [],
+                totalSold: 0
+            });
+        } catch (jsonError) {
+            console.error('Failed to send JSON response:', jsonError);
+            res.status(500).send('Internal server error');
+        }
+        } finally {
+            if (browser) {
+                try {
+                    await browser.close();
+                } catch (closeError) {
+                    console.error('Error closing browser:', closeError);
+                }
+            }
+        }
+    })();
+
+    // Race between scraping and timeout
+    try {
+        const result = await Promise.race([scrapingPromise, timeoutPromise]);
+        if (!res.headersSent) {
+            res.json(result);
+        }
+    } catch (error) {
+        console.error('Scraping failed:', error);
+        if (!res.headersSent) {
+            res.json({
+                success: false,
+                message: `Scraping failed: ${error.message}`,
+                analytics: { 
+                    total: { count: 0, highest: 0, lowest: 0, average: 0 }, 
+                    new: { count: 0, highest: 0, lowest: 0, average: 0 }, 
+                    used: { count: 0, highest: 0, lowest: 0, average: 0 } 
+                },
+                items: [],
+                totalSold: 0
+            });
         }
     }
 });
@@ -942,6 +1056,7 @@ app.get('/', (req, res) => {
                 .analytics-grid { 
                     display: grid; 
                     grid-template-columns: repeat(2, 1fr); 
+                    grid-template-rows: repeat(2, 1fr);
                     gap: 20px; 
                     margin-top: 20px; 
                 }
