@@ -436,7 +436,8 @@ app.get('/api/scrape-sold', async (req, res) => {
     try {
         console.log('🚀 Launching Puppeteer browser...');
         browser = await puppeteer.launch({ 
-            headless: 'new',
+            headless: true,
+            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser',
             args: [
                 '--no-sandbox', 
                 '--disable-setuid-sandbox',
@@ -449,7 +450,10 @@ app.get('/api/scrape-sold', async (req, res) => {
                 '--disable-web-security',
                 '--disable-features=VizDisplayCompositor',
                 '--memory-pressure-off',
-                '--max_old_space_size=4096'
+                '--max_old_space_size=4096',
+                '--disable-background-timer-throttling',
+                '--disable-backgrounding-occluded-windows',
+                '--disable-renderer-backgrounding'
             ]
         });
         console.log('✅ Browser launched successfully');
@@ -948,6 +952,7 @@ app.get('/', (req, res) => {
                 .analytics-grid { 
                     display: grid; 
                     grid-template-columns: repeat(2, 1fr); 
+                    grid-template-rows: repeat(2, 1fr);
                     gap: 20px; 
                     margin-top: 20px; 
                 }
