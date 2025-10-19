@@ -435,63 +435,41 @@ app.get('/api/scrape-sold', async (req, res) => {
     let browser;
     try {
         console.log('🚀 Launching Puppeteer browser...');
-        browser = await puppeteer.launch({ 
-            headless: 'new',
-            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser',
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                '--single-process',
-                '--no-zygote',
-                '--disable-web-security',
-                '--disable-features=VizDisplayCompositor',
-                '--memory-pressure-off',
-                '--max_old_space_size=512',
-                '--disable-extensions',
-                '--disable-plugins',
-                '--disable-default-apps',
-                '--disable-sync',
-                '--disable-translate',
-                '--hide-scrollbars',
-                '--mute-audio',
-                '--disable-background-networking',
-                '--disable-client-side-phishing-detection',
-                '--disable-hang-monitor',
-                '--disable-prompt-on-repost',
-                '--disable-domain-reliability',
-                '--disable-features=TranslateUI',
-                '--disable-ipc-flooding-protection',
-                '--disable-background-timer-throttling',
-                '--disable-backgrounding-occluded-windows',
-                '--disable-renderer-backgrounding',
-                '--disable-logging',
-                '--disable-permissions-api',
-                '--disable-speech-api',
-                '--disable-file-system',
-                '--disable-presentation-api',
-                '--disable-device-discovery-notifications',
-                '--disable-component-extensions-with-background-pages',
-                '--disable-default-apps',
-                '--disable-extensions-file-access-check',
-                '--disable-extensions-http-throttling',
-                '--disable-component-update',
-                '--disable-domain-reliability',
-                '--disable-features=TranslateUI,BlinkGenPropertyTrees',
-                '--disable-hang-monitor',
-                '--disable-prompt-on-repost',
-                '--disable-sync',
-                '--disable-background-timer-throttling',
-                '--disable-backgrounding-occluded-windows',
-                '--disable-renderer-backgrounding',
-                '--disable-features=TranslateUI',
-                '--disable-ipc-flooding-protection',
-                '--disable-background-timer-throttling',
-                '--disable-backgrounding-occluded-windows',
-                '--disable-renderer-backgrounding'
-            ]
-        });
+        // Try different Chrome paths
+        const chromePaths = [
+            '/usr/bin/chromium-browser',
+            '/usr/bin/chromium',
+            '/usr/bin/google-chrome-stable',
+            '/usr/bin/google-chrome'
+        ];
+        
+        let browserLaunched = false;
+        for (const chromePath of chromePaths) {
+            try {
+                console.log(`🚀 Trying Chrome at: ${chromePath}`);
+                browser = await puppeteer.launch({ 
+                    headless: true,
+                    executablePath: chromePath,
+                    args: [
+                        '--no-sandbox',
+                        '--disable-setuid-sandbox',
+                        '--disable-dev-shm-usage',
+                        '--disable-gpu',
+                        '--single-process',
+                        '--no-zygote'
+                    ]
+                });
+                console.log(`✅ Browser launched successfully with ${chromePath}`);
+                browserLaunched = true;
+                break;
+            } catch (error) {
+                console.log(`❌ Chrome at ${chromePath} failed: ${error.message}`);
+            }
+        }
+        
+        if (!browserLaunched) {
+            throw new Error('All Chrome paths failed');
+        }
         console.log('✅ Browser launched successfully');
         
         // Create page with retry logic
