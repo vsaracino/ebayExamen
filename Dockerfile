@@ -1,23 +1,19 @@
-FROM node:18-alpine
+FROM ghcr.io/puppeteer/puppeteer:21.11.0
 
-# Install dependencies for Puppeteer
-RUN apk add --no-cache \
-    chromium \
-    nss \
-    freetype \
-    freetype-dev \
-    harfbuzz \
-    ca-certificates \
-    ttf-freefont
-
-# Tell Puppeteer to use the installed Chromium
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-
+# Set working directory
 WORKDIR /app
+
+# Copy package files
 COPY package*.json ./
+
+# Install dependencies
 RUN npm install
+
+# Copy application files
 COPY . .
 
+# Expose port
 EXPOSE 3023
+
+# Start the application
 CMD ["node", "title-targeted-scraper.js"]

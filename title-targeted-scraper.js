@@ -435,31 +435,18 @@ app.get('/api/scrape-sold', async (req, res) => {
     let browser;
     try {
         console.log('🚀 Launching Puppeteer browser...');
-        // Use the environment variable path or default to chromium-browser
-        const chromePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser';
-        console.log(`🚀 Using Chrome at: ${chromePath}`);
+        // Use Puppeteer Docker image's Chrome
+        console.log(`🚀 Using Puppeteer Docker Chrome`);
         
         browser = await puppeteer.launch({ 
-            headless: true,
-            executablePath: chromePath,
+            headless: 'new',
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
                 '--disable-gpu',
                 '--single-process',
-                '--no-zygote',
-                '--disable-web-security',
-                '--disable-features=VizDisplayCompositor',
-                '--memory-pressure-off',
-                '--max_old_space_size=256',
-                '--disable-extensions',
-                '--disable-plugins',
-                '--disable-default-apps',
-                '--disable-sync',
-                '--disable-translate',
-                '--hide-scrollbars',
-                '--mute-audio'
+                '--no-zygote'
             ]
         });
         console.log('✅ Browser launched successfully');
