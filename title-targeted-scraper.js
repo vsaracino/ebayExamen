@@ -450,19 +450,55 @@ app.get('/api/scrape-sold', async (req, res) => {
                 '--disable-web-security',
                 '--disable-features=VizDisplayCompositor',
                 '--memory-pressure-off',
-                '--max_old_space_size=4096',
+                '--max_old_space_size=2048',
                 '--disable-background-timer-throttling',
                 '--disable-backgrounding-occluded-windows',
-                '--disable-renderer-backgrounding'
+                '--disable-renderer-backgrounding',
+                '--disable-extensions',
+                '--disable-plugins',
+                '--disable-images',
+                '--disable-default-apps',
+                '--disable-sync',
+                '--disable-translate',
+                '--hide-scrollbars',
+                '--mute-audio',
+                '--no-first-run',
+                '--disable-background-networking',
+                '--disable-background-timer-throttling',
+                '--disable-client-side-phishing-detection',
+                '--disable-default-apps',
+                '--disable-hang-monitor',
+                '--disable-prompt-on-repost',
+                '--disable-sync',
+                '--disable-domain-reliability',
+                '--disable-features=TranslateUI',
+                '--disable-ipc-flooding-protection'
             ]
         });
         console.log('✅ Browser launched successfully');
         
-        // Create page
-        const page = await browser.newPage();
-        await page.setViewport({ width: 1366, height: 768 });
-        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-        console.log('✅ Page created and configured');
+        // Create page with retry logic
+        let page;
+        let retries = 0;
+        const maxRetries = 3;
+        
+        while (retries < maxRetries) {
+            try {
+                console.log(`📄 Creating new page... (attempt ${retries + 1}/${maxRetries})`);
+                page = await browser.newPage();
+                await page.setViewport({ width: 1366, height: 768 });
+                await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+                console.log('✅ Page created and configured');
+                break;
+            } catch (error) {
+                retries++;
+                console.log(`❌ Page creation failed (attempt ${retries}/${maxRetries}): ${error.message}`);
+                if (retries >= maxRetries) {
+                    throw error;
+                }
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
         
         // Navigate to eBay sold search
         const searchUrl = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(keywords)}&LH_Sold=1&LH_Complete=1&_sop=10`;
