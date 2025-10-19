@@ -435,41 +435,33 @@ app.get('/api/scrape-sold', async (req, res) => {
     let browser;
     try {
         console.log('🚀 Launching Puppeteer browser...');
-        // Try different Chrome paths
-        const chromePaths = [
-            '/usr/bin/chromium-browser',
-            '/usr/bin/chromium',
-            '/usr/bin/google-chrome-stable',
-            '/usr/bin/google-chrome'
-        ];
+        // Use the environment variable path or default to chromium-browser
+        const chromePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser';
+        console.log(`🚀 Using Chrome at: ${chromePath}`);
         
-        let browserLaunched = false;
-        for (const chromePath of chromePaths) {
-            try {
-                console.log(`🚀 Trying Chrome at: ${chromePath}`);
-                browser = await puppeteer.launch({ 
-                    headless: true,
-                    executablePath: chromePath,
-                    args: [
-                        '--no-sandbox',
-                        '--disable-setuid-sandbox',
-                        '--disable-dev-shm-usage',
-                        '--disable-gpu',
-                        '--single-process',
-                        '--no-zygote'
-                    ]
-                });
-                console.log(`✅ Browser launched successfully with ${chromePath}`);
-                browserLaunched = true;
-                break;
-            } catch (error) {
-                console.log(`❌ Chrome at ${chromePath} failed: ${error.message}`);
-            }
-        }
-        
-        if (!browserLaunched) {
-            throw new Error('All Chrome paths failed');
-        }
+        browser = await puppeteer.launch({ 
+            headless: true,
+            executablePath: chromePath,
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--single-process',
+                '--no-zygote',
+                '--disable-web-security',
+                '--disable-features=VizDisplayCompositor',
+                '--memory-pressure-off',
+                '--max_old_space_size=256',
+                '--disable-extensions',
+                '--disable-plugins',
+                '--disable-default-apps',
+                '--disable-sync',
+                '--disable-translate',
+                '--hide-scrollbars',
+                '--mute-audio'
+            ]
+        });
         console.log('✅ Browser launched successfully');
         
         // Create page with retry logic
