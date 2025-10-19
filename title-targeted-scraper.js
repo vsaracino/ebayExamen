@@ -435,20 +435,53 @@ app.get('/api/scrape-sold', async (req, res) => {
     let browser;
     try {
         console.log('🚀 Launching Puppeteer browser...');
-        // Use Puppeteer Docker image's Chrome
-        console.log(`🚀 Using Puppeteer Docker Chrome`);
+        // Use the environment variable path or default to chromium-browser
+        const chromePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser';
+        console.log(`🚀 Using Chrome at: ${chromePath}`);
         
-        browser = await puppeteer.launch({ 
-            headless: 'new',
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                '--single-process',
-                '--no-zygote'
-            ]
-        });
+        // Try launching with timeout and retry
+        let launchAttempts = 0;
+        const maxAttempts = 3;
+        
+        while (launchAttempts < maxAttempts) {
+            try {
+                console.log(`🚀 Launch attempt ${launchAttempts + 1}/${maxAttempts}`);
+                browser = await puppeteer.launch({ 
+                    headless: 'new',
+                    executablePath: chromePath,
+                    timeout: 30000,
+                    args: [
+                        '--no-sandbox',
+                        '--disable-setuid-sandbox',
+                        '--disable-dev-shm-usage',
+                        '--disable-gpu',
+                        '--single-process',
+                        '--no-zygote',
+                        '--disable-web-security',
+                        '--disable-features=VizDisplayCompositor',
+                        '--memory-pressure-off',
+                        '--max_old_space_size=128',
+                        '--disable-extensions',
+                        '--disable-plugins',
+                        '--disable-default-apps',
+                        '--disable-sync',
+                        '--disable-translate',
+                        '--hide-scrollbars',
+                        '--mute-audio'
+                    ]
+                });
+                console.log(`✅ Browser launched successfully on attempt ${launchAttempts + 1}`);
+                break;
+            } catch (error) {
+                launchAttempts++;
+                console.log(`❌ Launch attempt ${launchAttempts} failed: ${error.message}`);
+                if (launchAttempts >= maxAttempts) {
+                    throw error;
+                }
+                console.log(`⏳ Waiting 2 seconds before retry...`);
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+        }
         console.log('✅ Browser launched successfully');
         
         // Create page with retry logic
